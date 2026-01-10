@@ -6,6 +6,7 @@ from typing import Optional, List, Dict, Any
 class StressTestRequest(BaseModel):
     """Idea stress test request"""
     idea: str = Field(..., min_length=10, description="The startup idea to test")
+    selected_critics: Optional[List[str]] = Field(None, description="List of critics to use (vc, engineer, ethicist, user, competitor)")
 
 
 class ValidationResponse(BaseModel):

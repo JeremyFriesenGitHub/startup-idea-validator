@@ -216,18 +216,27 @@ class AgentService:
             "ethicist": lambda neutral: f"""Persona: Ethicist / Safety Reviewer\nAttack: harm, bias, misuse, privacy\n\nDeliver exactly:\n- HARMS & BIAS: (2 bullets)\n- MISUSE SCENARIOS: (2 bullets)\n- DATA PRIVACY: (1 specific risk)\n- REQUIRED SAFEGUARD: (1 mandatory control)\n\nDon’t moralize. Be practical.\n\nIdea:\n{neutral}""",
             "user": lambda neutral: f"""Persona: Real User (impatient, skeptical)\nAttack: adoption friction, trust, workflow fit\n\nDeliver exactly:\n- ADOPTION FRICTION: (2 bullets)\n- TRUST ISSUES: (2 bullets)\n- DEALBREAKER: (1 reason I won't sign up)\n- WHAT WOULD CONVINCE ME: (1 feature/change)\n\nIdea:\n{neutral}""",
             "competitor": lambda neutral: f"""Persona: Competitor Strategy Lead\nAttack: why we’ll crush you\n\nDeliver exactly:\n- COMPETITIVE ADVANTAGE: (2 bullets on why we win)\n- COPYCAT STRATEGY: (2 bullets on how we copy you)\n- YOUR WEAKNESS: (1 critical flaw)\n- DEFENSIVE MOVE: (1 thing you must do)\n\nBe ruthless.\n\nIdea:\n{neutral}""",
-            "final_judge": lambda neutral, assume, critics: f"""You are an independent hackathon judge.\nSynthesize the critics below into a decisive verdict.\n\nReturn in this exact format:\n\nPRIMARY FAILURE MODE:\n- (one sentence)\n\nTOP 3 ASSUMPTIONS TO TEST:\n1) ...\n2) ...\n3) ...\n\nKILL QUESTION:\n- (one question)\n\nWINNING DEMO ANGLE:\n- (one sentence: how to demo this in 30 seconds)\n\n48-HOUR VALIDATION EXPERIMENT:\n- (one experiment + success metric)\n\nONE PIVOT TO MAKE THIS A WINNER:\n- (one sentence)\n\nINPUTS\nNeutral Idea:\n{neutral}\n\nAssumptions:\n{assume}\n\nVC:\n{critics["vc"]}\n\nEngineer:\n{critics["engineer"]}\n\nEthicist:\n{critics["ethicist"]}\n\nUser:\n{critics["user"]}\n\nCompetitor:\n{critics["competitor"]}""",
+            "final_judge": lambda neutral, assume, critics: f"""You are an independent hackathon judge.\nSynthesize the critics below into a decisive verdict.\n\nReturn in this exact format:\n\nPRIMARY FAILURE MODE:\n- (one sentence)\n\nTOP 3 ASSUMPTIONS TO TEST:\n1) ...\n2) ...\n3) ...\n\nKILL QUESTION:\n- (one question)\n\nWINNING DEMO ANGLE:\n- (one sentence: how to demo this in 30 seconds)\n\n48-HOUR VALIDATION EXPERIMENT:\n- (one experiment + success metric)\n\nONE PIVOT TO MAKE THIS A WINNER:\n- (one sentence)\n\nINPUTS\nNeutral Idea:\n{neutral}\n\nAssumptions:\n{assume}\n\n""" + "\n\n".join([f"{k.title()}:\n{v}" for k, v in critics.items()])
         }
 
     # --- Main Workflow ---
 
-    async def run_stress_test(self, idea_text: str, thread_id: Optional[str] = None) -> Dict[str, Any]:
+    async def run_stress_test(self, idea_text: str, thread_id: Optional[str] = None, selected_critics: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         Execute the full agentic stress test workflow.
         """
         assistant_id = await self.ensure_assistant()
         
-        # Create thread if new
+        # Default to all critics if none selected
+        available_critics = ["vc", "engineer", "ethicist", "user", "competitor"]
+        if not selected_critics:
+            selected_critics = available_critics
+        
+        # Filter selected critics to ensure they are valid
+        selected_critics = [c for c in selected_critics if c in available_critics]
+        if not selected_critics:
+             selected_critics = available_critics
+
         if not thread_id:
             # SDK create_thread is async
             thread = await self.client.create_thread(assistant_id=assistant_id)
@@ -289,23 +298,18 @@ class AgentService:
                 except Exception as e:
                     print(f"Warning: Failed to delete temporary thread {t_id_str}: {e}")
 
-        critic_tasks = [
-            _run_isolated_critic(P["vc"](neutral_idea), self.MODELS["vc"]),
-            _run_isolated_critic(P["engineer"](neutral_idea), self.MODELS["engineer"]),
-            _run_isolated_critic(P["ethicist"](neutral_idea), self.MODELS["ethicist"]),
-            _run_isolated_critic(P["user"](neutral_idea), self.MODELS["user"]),
-            _run_isolated_critic(P["competitor"](neutral_idea), self.MODELS["competitor"]),
-        ]
+        critic_tasks = []
+        critic_names = []
+        
+        for critic_name in selected_critics:
+            critic_prompt = P[critic_name](neutral_idea)
+            model_conf = self.MODELS[critic_name]
+            critic_tasks.append(_run_isolated_critic(critic_prompt, model_conf))
+            critic_names.append(critic_name)
         
         # Run critics in parallel
         results = await asyncio.gather(*critic_tasks)
-        critics = {
-            "vc": results[0],
-            "engineer": results[1],
-            "ethicist": results[2],
-            "user": results[3],
-            "competitor": results[4],
-        }
+        critics = {name: result for name, result in zip(critic_names, results)}
 
         # 4. Compute Risk Signals (Local Python)
         risk_signals = self.compute_risk_signals(critics)
