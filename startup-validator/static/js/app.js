@@ -208,71 +208,145 @@ function displayResults(data) {
     // Set metadata
     elements.resultMeta.textContent = `Thread ID: ${data.thread_id}`;
     
-    // Set summary to the Verdict (Agentic structure)
-    // Use marked if available
+    // Set summary (Executive Summary) with markdown rendering
     if (typeof marked !== 'undefined' && data.verdict) {
-        elements.summaryText.innerHTML = marked.parse(data.verdict);
+        // Replace escaped newlines with actual newlines
+        const verdictText = data.verdict.replace(/\\n/g, '\n');
+        elements.summaryText.innerHTML = marked.parse(verdictText);
     } else {
         elements.summaryText.textContent = data.verdict || "Analysis complete.";
     }
 
-    // Display Strengths -> Top Themes
-    elements.strengthsList.innerHTML = '';
-    if (data.risk_signals && data.risk_signals.topThemes) {
-        data.risk_signals.topThemes.forEach(theme => {
-            const li = document.createElement('li');
-            li.innerHTML = `<strong>${theme.label}</strong>: Mentioned by ${theme.count} critics`;
-            elements.strengthsList.appendChild(li);
-        });
-    } else {
-        elements.strengthsList.innerHTML = '<li>Analysis complete.</li>';
+    // Display Key Strengths (summary of executive summary) -> Top Themes with full markdown
+    const strengthsContent = document.getElementById('strengthsContent');
+    if (strengthsContent) {
+        let strengthsText = '';
+        if (data.risk_signals && data.risk_signals.topThemes) {
+            strengthsText = data.risk_signals.topThemes
+                .map(theme => `**${theme.label}**: Mentioned by ${theme.count} critics`)
+                .join('\n\n');
+        } else {
+            strengthsText = 'Analysis complete.';
+        }
+        
+        if (typeof marked !== 'undefined') {
+            strengthsContent.innerHTML = marked.parse(strengthsText);
+        } else {
+            strengthsContent.textContent = strengthsText;
+        }
     }
     
-    // Display Concerns -> High Confidence Risks
-    elements.concernsList.innerHTML = '';
-    if (data.risk_signals && data.risk_signals.highConfidenceRisks && data.risk_signals.highConfidenceRisks.length > 0) {
-        data.risk_signals.highConfidenceRisks.forEach(risk => {
-            const li = document.createElement('li');
-            li.innerHTML = `<strong>${risk.label}</strong> (High Confidence)`;
-            elements.concernsList.appendChild(li);
-        });
-    } else {
-        elements.concernsList.innerHTML = '<li>No high-confidence risks detected.</li>';
+    // Display Concerns & Risks (with data and sources) -> High Confidence Risks with full markdown
+    const concernsContent = document.getElementById('concernsContent');
+    if (concernsContent) {
+        let concernsText = '';
+        if (data.risk_signals && data.risk_signals.highConfidenceRisks && data.risk_signals.highConfidenceRisks.length > 0) {
+            concernsText = data.risk_signals.highConfidenceRisks
+                .map(risk => {
+                    // Get the full critique text for this risk if available
+                    let description = '*High Confidence Risk*\n\nThis risk has been identified with high confidence based on multiple expert critiques.';
+                    
+                    // Try to find relevant critique content from critics
+                    if (data.critics) {
+                        Object.entries(data.critics).forEach(([role, text]) => {
+                            // Check if this critic mentions this risk
+                            if (text.toLowerCase().includes(risk.label.toLowerCase())) {
+                                // Extract relevant section
+                                const lines = text.split('\n');
+                                const relevantLines = lines.filter(line => 
+                                    line.toLowerCase().includes(risk.label.toLowerCase()) ||
+                                    line.includes('**') || line.includes('*')
+                                );
+                                if (relevantLines.length > 0) {
+                                    description += '\n\n**From ' + role.charAt(0).toUpperCase() + role.slice(1) + ' Analysis:**\n\n';
+                                    description += relevantLines.slice(0, 3).join('\n');
+                                }
+                            }
+                        });
+                    }
+                    
+                    return `### ${risk.label}\n\n${description}`;
+                })
+                .join('\n\n---\n\n');
+        } else {
+            concernsText = 'No high-confidence risks detected.';
+        }
+        
+        // Replace escaped newlines with actual newlines
+        concernsText = concernsText.replace(/\\n/g, '\n');
+        
+        if (typeof marked !== 'undefined') {
+            concernsContent.innerHTML = marked.parse(concernsText);
+        } else {
+            concernsContent.textContent = concernsText;
+        }
     }
     
-    // Display Next Steps / Critics Summary
-    elements.stepsList.innerHTML = '';
-    if (data.critics) {
-        Object.entries(data.critics).forEach(([role, text]) => {
-            const li = document.createElement('li');
-            const summary = text.split('\n')[0].replace(/^- /, '');
-            li.innerHTML = `<span style="text-transform: capitalize"><strong>${role}</strong></span>: ${summary}`;
-            elements.stepsList.appendChild(li);
-        });
-    } else {
-        elements.stepsList.innerHTML = '<li>See detailed analysis below</li>';
+    // Display Analysis Summary (summary of detailed analysis) -> Critics Summary with full markdown
+    const stepsContent = document.getElementById('stepsContent');
+    if (stepsContent) {
+        let stepsText = '';
+        if (data.critics) {
+            stepsText = Object.entries(data.critics)
+                .map(([role, text]) => {
+                    // Replace escaped newlines and get first meaningful line
+                    const cleanText = text.replace(/\\n/g, '\n');
+                    const lines = cleanText.split('\n').filter(line => line.trim().length > 0);
+                    const summary = lines[0].replace(/^[-*]\s*/, '');
+                    return `**${role.charAt(0).toUpperCase() + role.slice(1)}**: ${summary}`;
+                })
+                .join('\n\n');
+        } else {
+            stepsText = 'See detailed analysis below';
+        }
+        
+        if (typeof marked !== 'undefined') {
+            stepsContent.innerHTML = marked.parse(stepsText);
+        } else {
+            stepsContent.textContent = stepsText;
+        }
     }
     
-    // Display detailed analysis (Agentic structure)
-    let detailedHtml = `
-        <div class="analysis-block">
-            <h4>Neutralized Idea</h4>
-            <p>${data.neutral_idea}</p>
-        </div>
-        <div class="analysis-block">
-            <h4>Assumptions to Test</h4>
-            <pre style="white-space: pre-wrap; font-family: inherit;">${data.assumptions}</pre>
-        </div>
-    `;
+    // Display detailed analysis with markdown rendering
+    let detailedHtml = '';
+    
+    if (typeof marked !== 'undefined') {
+        // Build markdown for detailed analysis
+        let analysisMarkdown = `## Neutralized Idea\n\n${data.neutral_idea}\n\n`;
+        analysisMarkdown += `## Assumptions to Test\n\n${data.assumptions}\n\n`;
+        
+        if (data.critics) {
+            analysisMarkdown += `## Expert Critiques\n\n`;
+            Object.entries(data.critics).forEach(([role, text]) => {
+                // Replace escaped newlines with actual newlines
+                const cleanText = text.replace(/\\n/g, '\n');
+                analysisMarkdown += `### ${role.charAt(0).toUpperCase() + role.slice(1)} Analysis\n\n${cleanText}\n\n---\n\n`;
+            });
+        }
+        
+        detailedHtml = marked.parse(analysisMarkdown);
+    } else {
+        // Fallback HTML structure
+        detailedHtml = `
+            <div class="analysis-block">
+                <h4>Neutralized Idea</h4>
+                <p>${data.neutral_idea}</p>
+            </div>
+            <div class="analysis-block">
+                <h4>Assumptions to Test</h4>
+                <pre style="white-space: pre-wrap; font-family: inherit;">${data.assumptions}</pre>
+            </div>
+        `;
 
-    if (data.critics) {
-        Object.entries(data.critics).forEach(([role, text]) => {
-            detailedHtml += `
-            <div class="analysis-block critic-block">
-                <h4 style="text-transform: capitalize; color: var(--color-accent);">${role} Critique</h4>
-                <pre style="white-space: pre-wrap; font-family: inherit; font-size: 0.9em; background: rgba(0,0,0,0.1); padding: 10px; border-radius: 8px;">${text}</pre>
-            </div>`;
-        });
+        if (data.critics) {
+            Object.entries(data.critics).forEach(([role, text]) => {
+                detailedHtml += `
+                <div class="analysis-block critic-block">
+                    <h4 style="text-transform: capitalize; color: var(--color-accent);">${role} Critique</h4>
+                    <pre style="white-space: pre-wrap; font-family: inherit; font-size: 0.9em; background: rgba(0,0,0,0.1); padding: 10px; border-radius: 8px;">${text}</pre>
+                </div>`;
+            });
+        }
     }
 
     elements.fullAnalysis.innerHTML = detailedHtml;
