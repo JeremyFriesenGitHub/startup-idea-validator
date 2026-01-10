@@ -245,7 +245,7 @@ function displayResults(data) {
     if (data.critics) {
         Object.entries(data.critics).forEach(([role, text]) => {
             const li = document.createElement('li');
-            const summary = text.split('\n')[0].replace(/^- /, '').substring(0, 100) + '...';
+            const summary = text.split('\n')[0].replace(/^- /, '');
             li.innerHTML = `<span style="text-transform: capitalize"><strong>${role}</strong></span>: ${summary}`;
             elements.stepsList.appendChild(li);
         });

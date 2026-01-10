@@ -91,10 +91,10 @@ graph LR
 
    # Models
    LLM_PROVIDER_MAIN=openai
-   MODEL_MAIN=gpt-5-chat-latest
+   MODEL_MAIN=gpt-4o
    
-   LLM_PROVIDER_VC=anthropic
-   MODEL_VC=claude-3-7-sonnet-20250219
+   LLM_PROVIDER_VC=openai
+   MODEL_VC=gpt-4o
    
    # ... see .env.example for full list
    ```
