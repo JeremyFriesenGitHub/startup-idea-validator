@@ -18,14 +18,14 @@ const elements = {
     validationSection: document.getElementById('validationSection'),
     resultsSection: document.getElementById('resultsSection'),
     loadingOverlay: document.getElementById('loadingOverlay'),
-    
+
     // Navigation
     navbar: document.getElementById('navbar'),
     navbarBrand: document.getElementById('navbarBrand'),
     navHome: document.getElementById('navHome'),
     navValidate: document.getElementById('navValidate'),
     navResults: document.getElementById('navResults'),
-    
+
     // Buttons
     startValidationBtn: document.getElementById('startValidationBtn'),
     backBtn: document.getElementById('backBtn'),
@@ -47,6 +47,7 @@ const elements = {
     strengthsList: document.getElementById('strengthsList'),
     concernsList: document.getElementById('concernsList'),
     stepsList: document.getElementById('stepsList'),
+    marketAnalysisContent: document.getElementById('marketAnalysisContent'),
     fullAnalysis: document.getElementById('fullAnalysis'),
     followupQuestion: document.getElementById('followupQuestion'),
     followupAnswer: document.getElementById('followupAnswer'),
@@ -69,11 +70,11 @@ async function validateIdea(ideaData) {
 
     if (!response.ok) {
         const error = await response.json();
-        
+
         // Handle validation errors (422)
         if (response.status === 422 && error.detail) {
             let errorMessage = 'Please check your input:\n\n';
-            
+
             if (Array.isArray(error.detail)) {
                 // FastAPI validation errors
                 error.detail.forEach(err => {
@@ -84,10 +85,10 @@ async function validateIdea(ideaData) {
             } else if (typeof error.detail === 'string') {
                 errorMessage = error.detail;
             }
-            
+
             throw new Error(errorMessage);
         }
-        
+
         throw new Error(error.detail || 'Failed to validate idea');
     }
 
@@ -139,10 +140,10 @@ function showSection(sectionToShow) {
         sectionToShow.style.display = 'block';
         sectionToShow.classList.add('fade-in');
     }
-    
+
     // Update navbar active states
     updateNavbarState(sectionToShow);
-    
+
     // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -152,7 +153,7 @@ function updateNavbarState(activeSection) {
     [elements.navHome, elements.navValidate, elements.navResults].forEach(btn => {
         if (btn) btn.classList.remove('active');
     });
-    
+
     // Add active class to current section's nav button
     if (activeSection === elements.welcomeSection) {
         elements.navHome.classList.add('active');
@@ -196,7 +197,7 @@ function showError(message) {
     errorDiv.textContent = message;
 
     document.body.appendChild(errorDiv);
-    
+
     // Auto remove after 6 seconds
     setTimeout(() => {
         errorDiv.style.animation = 'slideOut 0.3s ease';
@@ -207,7 +208,7 @@ function showError(message) {
 function displayResults(data) {
     // Set metadata
     elements.resultMeta.textContent = `Thread ID: ${data.thread_id}`;
-    
+
     // Set summary (Executive Summary) with markdown rendering
     if (typeof marked !== 'undefined' && data.verdict) {
         // Replace escaped newlines with actual newlines
@@ -215,6 +216,20 @@ function displayResults(data) {
         elements.summaryText.innerHTML = marked.parse(verdictText);
     } else {
         elements.summaryText.textContent = data.verdict || "Analysis complete.";
+    }
+
+    // Display Market Analysis (Merged Logic)
+    if (elements.marketAnalysisContent) {
+        if (data.market_analysis) {
+            if (typeof marked !== 'undefined') {
+                elements.marketAnalysisContent.innerHTML = marked.parse(data.market_analysis);
+            } else {
+                elements.marketAnalysisContent.textContent = data.market_analysis;
+            }
+            elements.marketAnalysisContent.parentElement.style.display = 'block';
+        } else {
+            elements.marketAnalysisContent.parentElement.style.display = 'none';
+        }
     }
 
     // Display Key Strengths (summary of executive summary) -> Top Themes with full markdown
@@ -228,14 +243,14 @@ function displayResults(data) {
         } else {
             strengthsText = 'Analysis complete.';
         }
-        
+
         if (typeof marked !== 'undefined') {
             strengthsContent.innerHTML = marked.parse(strengthsText);
         } else {
             strengthsContent.textContent = strengthsText;
         }
     }
-    
+
     // Display Concerns & Risks (with data and sources) -> High Confidence Risks with full markdown
     const concernsContent = document.getElementById('concernsContent');
     if (concernsContent) {
@@ -245,7 +260,7 @@ function displayResults(data) {
                 .map(risk => {
                     // Get the full critique text for this risk if available
                     let description = '*High Confidence Risk*\n\nThis risk has been identified with high confidence based on multiple expert critiques.';
-                    
+
                     // Try to find relevant critique content from critics
                     if (data.critics) {
                         Object.entries(data.critics).forEach(([role, text]) => {
@@ -253,7 +268,7 @@ function displayResults(data) {
                             if (text.toLowerCase().includes(risk.label.toLowerCase())) {
                                 // Extract relevant section
                                 const lines = text.split('\n');
-                                const relevantLines = lines.filter(line => 
+                                const relevantLines = lines.filter(line =>
                                     line.toLowerCase().includes(risk.label.toLowerCase()) ||
                                     line.includes('**') || line.includes('*')
                                 );
@@ -264,24 +279,24 @@ function displayResults(data) {
                             }
                         });
                     }
-                    
+
                     return `### ${risk.label}\n\n${description}`;
                 })
                 .join('\n\n---\n\n');
         } else {
             concernsText = 'No high-confidence risks detected.';
         }
-        
+
         // Replace escaped newlines with actual newlines
         concernsText = concernsText.replace(/\\n/g, '\n');
-        
+
         if (typeof marked !== 'undefined') {
             concernsContent.innerHTML = marked.parse(concernsText);
         } else {
             concernsContent.textContent = concernsText;
         }
     }
-    
+
     // Display Analysis Summary (summary of detailed analysis) -> Critics Summary with full markdown
     const stepsContent = document.getElementById('stepsContent');
     if (stepsContent) {
@@ -299,22 +314,22 @@ function displayResults(data) {
         } else {
             stepsText = 'See detailed analysis below';
         }
-        
+
         if (typeof marked !== 'undefined') {
             stepsContent.innerHTML = marked.parse(stepsText);
         } else {
             stepsContent.textContent = stepsText;
         }
     }
-    
+
     // Display detailed analysis with markdown rendering
     let detailedHtml = '';
-    
+
     if (typeof marked !== 'undefined') {
         // Build markdown for detailed analysis
         let analysisMarkdown = `## Neutralized Idea\n\n${data.neutral_idea}\n\n`;
         analysisMarkdown += `## Assumptions to Test\n\n${data.assumptions}\n\n`;
-        
+
         if (data.critics) {
             analysisMarkdown += `## Expert Critiques\n\n`;
             Object.entries(data.critics).forEach(([role, text]) => {
@@ -323,7 +338,7 @@ function displayResults(data) {
                 analysisMarkdown += `### ${role.charAt(0).toUpperCase() + role.slice(1)} Analysis\n\n${cleanText}\n\n---\n\n`;
             });
         }
-        
+
         detailedHtml = marked.parse(analysisMarkdown);
     } else {
         // Fallback HTML structure
@@ -421,35 +436,35 @@ elements.validationForm.addEventListener('submit', async (e) => {
         unique_value: elements.uniqueValue.value.trim() || null
     };
     console.log('Form data gathered:', ideaData);
-    
+
     // Validate required fields
     if (!ideaData.idea_name || !ideaData.description || !ideaData.target_market || !ideaData.problem_solving) {
         showError('Please fill in all required fields');
         return;
     }
-    
+
     // Client-side length validation
     const minLength = 20;
     if (ideaData.description.length < minLength) {
         showError(`Description is too short. Please provide at least ${minLength} characters to get a meaningful analysis.`);
         return;
     }
-    
+
     if (ideaData.problem_solving.length < minLength) {
         showError(`Problem description is too short. Please provide at least ${minLength} characters to help us understand the issue better.`);
         return;
     }
-    
+
     if (ideaData.idea_name.length < 3) {
         showError('Idea name is too short. Please provide a meaningful name (at least 3 characters).');
         return;
     }
-    
+
     if (ideaData.target_market.length < 3) {
         showError('Target market description is too short. Please describe your target audience (at least 3 characters).');
         return;
     }
-    
+
     // Construct the single idea string for the agentic backend
     const combinedIdea = `
 **Name:** ${ideaData.idea_name}
@@ -508,14 +523,14 @@ elements.askFollowupBtn.addEventListener('click', async () => {
         elements.askFollowupBtn.textContent = 'Asking...';
 
         const result = await askFollowUp(currentThreadId, question);
-        
+
         // Display answer with markdown rendering
         if (typeof marked !== 'undefined') {
             elements.followupAnswer.innerHTML = marked.parse(result.answer);
         } else {
             elements.followupAnswer.textContent = result.answer;
         }
-        
+
         elements.followupAnswer.style.display = 'block';
 
         // Clear question

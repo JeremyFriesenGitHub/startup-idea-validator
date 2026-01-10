@@ -17,11 +17,9 @@ class ValidationResponse(BaseModel):
     assumptions: str = Field(..., description="Extracted assumptions")
     critics: Dict[str, str] = Field(..., description="Critiques from different personas")
     risk_signals: Dict[str, Any] = Field(..., description="Computed risk signals")
+    market_analysis: str = Field(..., description="Competitive landscape and capital analysis")
     verdict: str = Field(..., description="Final synthesized verdict")
     meta: Dict[str, Any] = Field(..., description="Metadata including models used")
-
-
-
 
 
 
