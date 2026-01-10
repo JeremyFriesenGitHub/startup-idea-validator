@@ -465,6 +465,9 @@ elements.validationForm.addEventListener('submit', async (e) => {
         return;
     }
 
+    // Get selected critics
+    const selectedCritics = Array.from(document.querySelectorAll('input[name="critics"]:checked')).map(cb => cb.value);
+
     // Construct the single idea string for the agentic backend
     const combinedIdea = `
 **Name:** ${ideaData.idea_name}
@@ -478,8 +481,11 @@ elements.validationForm.addEventListener('submit', async (e) => {
         showLoading('Specialized agents are analyzing your startup idea from multiple perspectives...');
 
         // Submit for validation
-        // Backend expects { "idea": "string" }
-        const result = await validateIdea({ idea: combinedIdea });
+        // Backend expects { "idea": "string", "selected_critics": ["vc", "engineer", ...] }
+        const result = await validateIdea({ 
+            idea: combinedIdea,
+            selected_critics: selectedCritics.length > 0 ? selectedCritics : null
+        });
 
         hideLoading();
 

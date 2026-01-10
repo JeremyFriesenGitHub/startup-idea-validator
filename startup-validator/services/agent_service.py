@@ -221,12 +221,12 @@ class AgentService:
             "user": lambda neutral: f"""Persona: Real User (impatient, skeptical)\nAttack: adoption friction, trust, workflow fit\n\nDeliver exactly:\n- ADOPTION FRICTION: (2 bullets)\n- TRUST ISSUES: (2 bullets)\n- DEALBREAKER: (1 reason I won't sign up)\n- WHAT WOULD CONVINCE ME: (1 feature/change)\n\nIdea:\n{neutral}""",
             "competitor": lambda neutral: f"""Persona: Competitor Strategy Lead\nAttack: why we’ll crush you\n\nDeliver exactly:\n- COMPETITIVE ADVANTAGE: (2 bullets on why we win)\n- COPYCAT STRATEGY: (2 bullets on how we copy you)\n- YOUR WEAKNESS: (1 critical flaw)\n- DEFENSIVE MOVE: (1 thing you must do)\n\nBe ruthless.\n\nIdea:\n{neutral}""",
             "market_analyst": lambda neutral: f"""Persona: Elite Market Analyst\nTask: Competitive Landscape & Capital Requirements\n\n1. COMPETITORS:\nList 3-5 **direct functional competitors** that offer the **exact same core value proposition**.\n- Do NOT list generic platforms (e.g., LinkedIn, Google, Indeed) unless they have this specific automation feature natively.\n- Focus on specific startups, Chrome extensions, or AI tools that solve this EXACT problem.\n\nFor each, provide:\n- Name\n- Success Score (1-10)\n- Est. Metric (Revenue, Users, or Valuation)\n- "How they crush you" (1 sentence)\n\nFormat as a Markdown Table.\n\n2. CAPITAL REQUIREMENTS:\nEstimate the round need (Pre-Seed, Seed, Series A) and amount ($X - $Y) to be competitive.\nProvide a 1-sentence rationale.\n\nIdea:\n{neutral}""",
-            "final_judge": lambda neutral, assume, critics: f"""You are an independent hackathon judge.\nSynthesize the critics below into a decisive verdict.\n\nReturn in this exact format:\n\nPRIMARY FAILURE MODE:\n- (one sentence)\n\nTOP 3 ASSUMPTIONS TO TEST:\n1) ...\n2) ...\n3) ...\n\nKILL QUESTION:\n- (one question)\n\nWINNING DEMO ANGLE:\n- (one sentence: how to demo this in 30 seconds)\n\n48-HOUR VALIDATION EXPERIMENT:\n- (one experiment + success metric)\n\nONE PIVOT TO MAKE THIS A WINNER:\n- (one sentence)\n\nINPUTS\nNeutral Idea:\n{neutral}\n\nAssumptions:\n{assume}\n\nVC:\n{critics["vc"]}\n\nEngineer:\n{critics["engineer"]}\n\nEthicist:\n{critics["ethicist"]}\n\nUser:\n{critics["user"]}\n\nCompetitor:\n{critics["competitor"]}""",
+            "final_judge": lambda neutral, assume, critics: f"""You are an independent hackathon judge.\nSynthesize the critics below into a decisive verdict.\n\nReturn in this exact format:\n\nPRIMARY FAILURE MODE:\n- (one sentence)\n\nTOP 3 ASSUMPTIONS TO TEST:\n1) ...\n2) ...\n3) ...\n\nKILL QUESTION:\n- (one question)\n\nWINNING DEMO ANGLE:\n- (one sentence: how to demo this in 30 seconds)\n\n48-HOUR VALIDATION EXPERIMENT:\n- (one experiment + success metric)\n\nONE PIVOT TO MAKE THIS A WINNER:\n- (one sentence)\n\nINPUTS\nNeutral Idea:\n{neutral}\n\nAssumptions:\n{assume}\n\nVC:\n{critics.get("vc", "Skipped")}\n\nEngineer:\n{critics.get("engineer", "Skipped")}\n\nEthicist:\n{critics.get("ethicist", "Skipped")}\n\nUser:\n{critics.get("user", "Skipped")}\n\nCompetitor:\n{critics.get("competitor", "Skipped")}""",
         }
 
     # --- Main Workflow ---
 
-    async def run_stress_test(self, idea_text: str, thread_id: Optional[str] = None) -> Dict[str, Any]:
+    async def run_stress_test(self, idea_text: str, thread_id: Optional[str] = None, selected_critics: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         Execute the full agentic stress test workflow.
         """
@@ -237,13 +237,12 @@ class AgentService:
             # SDK create_thread is async
             thread = await self.client.create_thread(assistant_id=assistant_id)
             
+            # Unpack thread ID (handling diff SDK versions/responses)
             thread_id = getattr(thread, "id", None) or getattr(thread, "thread_id", None)
-            if not thread_id:
-                if isinstance(thread, dict):
-                    thread_id = thread.get("id") or thread.get("thread_id")
+            if not thread_id and isinstance(thread, dict):
+                thread_id = thread.get("id") or thread.get("thread_id")
             
             if not thread_id:
-                # String fallback
                 if isinstance(thread, str):
                     thread_id = thread
                 else:
@@ -271,13 +270,14 @@ class AgentService:
 
         # 3. Parallel Critics
         # We must run each critic in a Separate Thread to avoid "Assistant is processing" locking issues
-        # on the main thread.
         async def _run_isolated_critic(prompt: str, model_conf: Dict[str, str]) -> str:
             # Create a localized thread for this critic
             t = await self.client.create_thread(assistant_id=assistant_id)
-            t_id = getattr(t, "id", None) or getattr(t, "thread_id", None)
-            if isinstance(t, dict): t_id = t.get("id") or t.get("thread_id")
             
+            t_id = getattr(t, "id", None) or getattr(t, "thread_id", None)
+            if not t_id and isinstance(t, dict): t_id = t.get("id") or t.get("thread_id")
+            if not t_id: t_id = str(t) # Fallback
+
             t_id_str = str(t_id)
             
             try:
@@ -294,25 +294,37 @@ class AgentService:
                 except Exception as e:
                     print(f"Warning: Failed to delete temporary thread {t_id_str}: {e}")
 
-        critic_tasks = [
-            _run_isolated_critic(P["vc"](neutral_idea), self.MODELS["vc"]),
-            _run_isolated_critic(P["engineer"](neutral_idea), self.MODELS["engineer"]),
-            _run_isolated_critic(P["ethicist"](neutral_idea), self.MODELS["ethicist"]),
-            _run_isolated_critic(P["user"](neutral_idea), self.MODELS["user"]),
-            _run_isolated_critic(P["competitor"](neutral_idea), self.MODELS["competitor"]),
-            _run_isolated_critic(P["market_analyst"](neutral_idea), self.MODELS["market_analyst"]),
-        ]
+        # Determine which critics to run
+        available_critics = ["vc", "engineer", "ethicist", "user", "competitor", "market_analyst"]
         
-        # Run critics in parallel
+        # If None, use all (default behavior)
+        if selected_critics is None:
+            critics_to_run = available_critics
+        else:
+            # Filter to only valid critics
+            critics_to_run = [c for c in selected_critics if c in available_critics]
+            # If user passed empty list? Fallback to all or allow empty? 
+            # Probably allows empty, but that might break things. Let's fallback to all if empty to be safe, 
+            # OR just run none. Running none makes sense if that's what's requested, but risk signals need input.
+            if not critics_to_run:
+                critics_to_run = available_critics
+
+        critic_tasks = []
+        for name in critics_to_run:
+            # Construct prompt
+            prompt_func = P[name]
+            # All critic prompts in _build_prompts are lambdas taking `neutral_idea`
+            prompt = prompt_func(neutral_idea)
+            
+            critic_tasks.append(_run_isolated_critic(prompt, self.MODELS[name]))
+
+        # Run valid critics in parallel
         results = await asyncio.gather(*critic_tasks)
-        critics = {
-            "vc": results[0],
-            "engineer": results[1],
-            "ethicist": results[2],
-            "user": results[3],
-            "competitor": results[4],
-            "market_analyst": results[5],
-        }
+
+        # Map back to names
+        critics = {}
+        for i, name in enumerate(critics_to_run):
+            critics[name] = results[i]
 
         # 4. Compute Risk Signals (Local Python)
         risk_signals = self.compute_risk_signals(critics)
@@ -333,7 +345,7 @@ class AgentService:
             "assumptions": assumptions_txt,
             "critics": critics,
             "risk_signals": risk_signals,
-            "market_analysis": critics["market_analyst"],
+            "market_analysis": critics.get("market_analyst"),
             "verdict": verdict,
             "meta": {
                 "models": self.MODELS
