@@ -19,7 +19,10 @@ async def validate_startup_idea(request: StressTestRequest):
         agent = get_agent_service()
         
         # Run stress test (async)
-        result = await agent.run_stress_test(request.idea)
+        result = await agent.run_stress_test(
+            idea_text=request.idea,
+            selected_critics=request.selected_critics
+        )
         
         return ValidationResponse(**result)
         

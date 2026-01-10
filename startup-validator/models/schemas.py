@@ -6,6 +6,7 @@ from typing import Optional, List, Dict, Any
 class StressTestRequest(BaseModel):
     """Idea stress test request"""
     idea: str = Field(..., min_length=10, description="The startup idea to test")
+    selected_critics: Optional[List[str]] = Field(default=None, description="List of specific critics to run (e.g. ['vc', 'engineer'])")
 
 
 class ValidationResponse(BaseModel):
@@ -17,7 +18,7 @@ class ValidationResponse(BaseModel):
     assumptions: str = Field(..., description="Extracted assumptions")
     critics: Dict[str, str] = Field(..., description="Critiques from different personas")
     risk_signals: Dict[str, Any] = Field(..., description="Computed risk signals")
-    market_analysis: str = Field(..., description="Competitive landscape and capital analysis")
+    market_analysis: Optional[str] = Field(None, description="Competitive landscape and capital analysis")
     verdict: str = Field(..., description="Final synthesized verdict")
     meta: Dict[str, Any] = Field(..., description="Metadata including models used")
 
