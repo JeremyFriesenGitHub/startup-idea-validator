@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+backboard-sdk
+python-dotenv
+pydantic
+pydantic-settings
