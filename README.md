@@ -23,10 +23,11 @@ graph LR
     A[Web Browser] -->|HTTP/JSON| B[FastAPI Backend]
     B -->|API Calls| C[Agent Service]
     C -->|Orchestration| D[Backboard.io]
-    D -->|Persona: VC| E[Claude 3.7]
-    D -->|Persona: Engineer| F[Grok]
-    D -->|Persona: Ethicist| G[Gemini 1.5]
-    D -->|Persona: User| H[GPT-4o Mini]
+    D -->|Persona: VC| E
+    D -->|Persona: Engineer| F
+    D -->|Persona: Ethicist| G
+    D -->|Persona: User| H
+    D -->|Persona: Market Analyst| I
     B -->|Serves| F[Static Frontend]
     
     style A fill:#667eea,color:#fff
@@ -399,4 +400,4 @@ For issues and questions:
 
 ---
 
-**Built with ❤️ using Backboard.io AI Memory**
+**Built with ❤️ using Backboard.io AI Memory.**
