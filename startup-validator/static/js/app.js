@@ -386,7 +386,7 @@ elements.validationForm.addEventListener('submit', async (e) => {
     `.trim();
 
     try {
-        showLoading('Agents are analyzing your startup idea (VC, Engineer, Ethicist, User, Competitor)...');
+        showLoading('Specialized agents are analyzing your startup idea from multiple perspectives...');
 
         // Submit for validation
         // Backend expects { "idea": "string" }
