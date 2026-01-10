@@ -1,34 +1,28 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 
-class IdeaSubmission(BaseModel):
-    """Startup idea submission request"""
-    idea_name: str = Field(..., min_length=1, max_length=200, description="Name of the startup idea")
-    description: str = Field(..., min_length=10, description="Detailed description of the idea")
-    target_market: str = Field(..., min_length=5, description="Target market or customer segment")
-    problem_solving: str = Field(..., min_length=10, description="What problem does this solve?")
-    unique_value: Optional[str] = Field(None, description="Unique value proposition or differentiator")
-    thread_id: Optional[str] = Field(None, description="Thread ID for continuing a conversation")
 
-
-class ValidationResult(BaseModel):
-    """Validation analysis result"""
-    category: str = Field(..., description="Analysis category (e.g., Market Viability, Competition)")
-    score: Optional[int] = Field(None, ge=0, le=100, description="Score out of 100")
-    analysis: str = Field(..., description="Detailed analysis text")
-    recommendations: List[str] = Field(default_factory=list, description="Specific recommendations")
+class StressTestRequest(BaseModel):
+    """Idea stress test request"""
+    idea: str = Field(..., min_length=10, description="The startup idea to test")
 
 
 class ValidationResponse(BaseModel):
     """Complete validation response"""
     thread_id: str = Field(..., description="Thread ID for this conversation")
     assistant_id: str = Field(..., description="Assistant ID used for validation")
-    summary: str = Field(..., description="Overall validation summary")
-    analysis: str = Field(..., description="Complete analysis from the AI")
-    strengths: List[str] = Field(default_factory=list, description="Key strengths identified")
-    concerns: List[str] = Field(default_factory=list, description="Key concerns or risks")
-    next_steps: List[str] = Field(default_factory=list, description="Recommended next steps")
+    input_idea: str = Field(..., description="Original input idea")
+    neutral_idea: str = Field(..., description="Neutralized version of the idea")
+    assumptions: str = Field(..., description="Extracted assumptions")
+    critics: Dict[str, str] = Field(..., description="Critiques from different personas")
+    risk_signals: Dict[str, Any] = Field(..., description="Computed risk signals")
+    verdict: str = Field(..., description="Final synthesized verdict")
+    meta: Dict[str, Any] = Field(..., description="Metadata including models used")
+
+
+
+
 
 
 class FollowUpRequest(BaseModel):

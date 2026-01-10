@@ -21,9 +21,12 @@ An AI-powered startup idea validation platform using [Backboard.io](https://back
 ```mermaid
 graph LR
     A[Web Browser] -->|HTTP/JSON| B[FastAPI Backend]
-    B -->|API Calls| C[Backboard.io Service]
-    C -->|LLM Requests| D[GPT-4 / Other LLMs]
-    C -->|Memory Storage| E[Vector Database]
+    B -->|API Calls| C[Agent Service]
+    C -->|Orchestration| D[Backboard.io]
+    D -->|Persona: VC| E[Claude 3.7]
+    D -->|Persona: Engineer| F[Grok]
+    D -->|Persona: Ethicist| G[Gemini 1.5]
+    D -->|Persona: User| H[GPT-4o Mini]
     B -->|Serves| F[Static Frontend]
     
     style A fill:#667eea,color:#fff
@@ -78,12 +81,22 @@ graph LR
    cp .env.example .env
    ```
    
-   Edit `.env` and add your Backboard.io API key:
+   Edit `.env` and add your keys:
    ```env
-   BACKBOARD_API_KEY=your_actual_api_key_here
+   # Server
    PORT=8000
-   HOST=0.0.0.0
-   ENV=development
+
+   # Backboard
+   BACKBOARD_API_KEY=your_key_here
+
+   # Models
+   LLM_PROVIDER_MAIN=openai
+   MODEL_MAIN=gpt-4o
+   
+   LLM_PROVIDER_VC=openai
+   MODEL_VC=gpt-4o
+   
+   # ... see .env.example for full list
    ```
 
 5. **Run the application**:
@@ -187,11 +200,16 @@ Validate a startup idea.
 {
   "thread_id": "thread_abc123",
   "assistant_id": "asst_xyz789",
-  "summary": "Strong market opportunity with clear differentiation...",
-  "analysis": "Full detailed analysis text...",
-  "strengths": ["Clear value proposition", "Large target market"],
-  "concerns": ["High competition", "User acquisition costs"],
-  "next_steps": ["Conduct user interviews", "Build MVP"]
+  "input_idea": "AI Meal Planner...",
+  "neutral_idea": "An algorithmic meal planning system...",
+  "verdict": "This startup is viable but high risk due to...",
+  "risk_signals": {
+    "highConfidenceRisks": ["Scalability/Cost"]
+  },
+  "critics": {
+    "vc": "Market is too small...",
+    "engineer": "Data pipeline is complex..."
+  }
 }
 ```
 

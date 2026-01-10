@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, FileResponse
 from routes.validator import router as validator_router
 from models.schemas import HealthResponse
-from services.backboard_service import get_backboard_service
+from services.agent_service import get_agent_service
 import os
 from pathlib import Path
 
@@ -48,12 +48,13 @@ app.include_router(validator_router)
 async def health_check():
     """Check service health and Backboard.io connection"""
     try:
-        backboard = get_backboard_service()
-        backboard_connected = backboard.health_check()
+        agent = get_agent_service()
+        # Ensure assistant is reachable (lazy check) or just key check
+        is_healthy = agent.health_check()
         
         return HealthResponse(
-            status="healthy" if backboard_connected else "degraded",
-            backboard_connected=backboard_connected
+            status="healthy" if is_healthy else "degraded",
+            backboard_connected=is_healthy
         )
     except Exception as e:
         return HealthResponse(

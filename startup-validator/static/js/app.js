@@ -32,7 +32,7 @@ const elements = {
     submitBtn: document.getElementById('submitBtn'),
     newValidationBtn: document.getElementById('newValidationBtn'),
     askFollowupBtn: document.getElementById('askFollowupBtn'),
-    
+
     // Form inputs
     ideaName: document.getElementById('ideaName'),
     description: document.getElementById('description'),
@@ -40,7 +40,7 @@ const elements = {
     problemSolving: document.getElementById('problemSolving'),
     uniqueValue: document.getElementById('uniqueValue'),
     validationForm: document.getElementById('validationForm'),
-    
+
     // Results elements
     resultMeta: document.getElementById('resultMeta'),
     summaryText: document.getElementById('summaryText'),
@@ -50,7 +50,7 @@ const elements = {
     fullAnalysis: document.getElementById('fullAnalysis'),
     followupQuestion: document.getElementById('followupQuestion'),
     followupAnswer: document.getElementById('followupAnswer'),
-    
+
     // Loading
     loadingText: document.getElementById('loadingText')
 };
@@ -66,7 +66,7 @@ async function validateIdea(ideaData) {
         },
         body: JSON.stringify(ideaData)
     });
-    
+
     if (!response.ok) {
         const error = await response.json();
         
@@ -90,7 +90,7 @@ async function validateIdea(ideaData) {
         
         throw new Error(error.detail || 'Failed to validate idea');
     }
-    
+
     return await response.json();
 }
 
@@ -105,12 +105,12 @@ async function askFollowUp(threadId, question) {
             question: question
         })
     });
-    
+
     if (!response.ok) {
         const error = await response.json();
         throw new Error(error.detail || 'Failed to process follow-up');
     }
-    
+
     return await response.json();
 }
 
@@ -133,7 +133,7 @@ function showSection(sectionToShow) {
     [elements.welcomeSection, elements.validationSection, elements.resultsSection].forEach(section => {
         if (section) section.style.display = 'none';
     });
-    
+
     // Show the requested section with animation
     if (sectionToShow) {
         sectionToShow.style.display = 'block';
@@ -194,7 +194,7 @@ function showError(message) {
         line-height: 1.5;
     `;
     errorDiv.textContent = message;
-    
+
     document.body.appendChild(errorDiv);
     
     // Auto remove after 6 seconds
@@ -208,76 +208,82 @@ function displayResults(data) {
     // Set metadata
     elements.resultMeta.textContent = `Thread ID: ${data.thread_id}`;
     
-    // Set summary with markdown rendering
-    if (typeof marked !== 'undefined') {
-        elements.summaryText.innerHTML = marked.parse(data.summary);
+    // Set summary to the Verdict (Agentic structure)
+    // Use marked if available
+    if (typeof marked !== 'undefined' && data.verdict) {
+        elements.summaryText.innerHTML = marked.parse(data.verdict);
     } else {
-        elements.summaryText.textContent = data.summary;
+        elements.summaryText.textContent = data.verdict || "Analysis complete.";
     }
-    
-    // Display strengths with markdown rendering
+
+    // Display Strengths -> Top Themes
     elements.strengthsList.innerHTML = '';
-    if (data.strengths && data.strengths.length > 0) {
-        data.strengths.forEach(strength => {
+    if (data.risk_signals && data.risk_signals.topThemes) {
+        data.risk_signals.topThemes.forEach(theme => {
             const li = document.createElement('li');
-            if (typeof marked !== 'undefined') {
-                li.innerHTML = marked.parseInline(strength);
-            } else {
-                li.textContent = strength;
-            }
+            li.innerHTML = `<strong>${theme.label}</strong>: Mentioned by ${theme.count} critics`;
             elements.strengthsList.appendChild(li);
         });
     } else {
-        elements.strengthsList.innerHTML = '<li>See detailed analysis below</li>';
+        elements.strengthsList.innerHTML = '<li>Analysis complete.</li>';
     }
     
-    // Display concerns with markdown rendering
+    // Display Concerns -> High Confidence Risks
     elements.concernsList.innerHTML = '';
-    if (data.concerns && data.concerns.length > 0) {
-        data.concerns.forEach(concern => {
+    if (data.risk_signals && data.risk_signals.highConfidenceRisks && data.risk_signals.highConfidenceRisks.length > 0) {
+        data.risk_signals.highConfidenceRisks.forEach(risk => {
             const li = document.createElement('li');
-            if (typeof marked !== 'undefined') {
-                li.innerHTML = marked.parseInline(concern);
-            } else {
-                li.textContent = concern;
-            }
+            li.innerHTML = `<strong>${risk.label}</strong> (High Confidence)`;
             elements.concernsList.appendChild(li);
         });
     } else {
-        elements.concernsList.innerHTML = '<li>See detailed analysis below</li>';
+        elements.concernsList.innerHTML = '<li>No high-confidence risks detected.</li>';
     }
     
-    // Display next steps with markdown rendering
+    // Display Next Steps / Critics Summary
     elements.stepsList.innerHTML = '';
-    if (data.next_steps && data.next_steps.length > 0) {
-        data.next_steps.forEach(step => {
+    if (data.critics) {
+        Object.entries(data.critics).forEach(([role, text]) => {
             const li = document.createElement('li');
-            if (typeof marked !== 'undefined') {
-                li.innerHTML = marked.parseInline(step);
-            } else {
-                li.textContent = step;
-            }
+            const summary = text.split('\n')[0].replace(/^- /, '');
+            li.innerHTML = `<span style="text-transform: capitalize"><strong>${role}</strong></span>: ${summary}`;
             elements.stepsList.appendChild(li);
         });
     } else {
         elements.stepsList.innerHTML = '<li>See detailed analysis below</li>';
     }
     
-    // Display full analysis with markdown rendering
-    if (typeof marked !== 'undefined') {
-        elements.fullAnalysis.innerHTML = marked.parse(data.analysis);
-    } else {
-        // Fallback to plain text if marked.js isn't loaded
-        elements.fullAnalysis.textContent = data.analysis;
+    // Display detailed analysis (Agentic structure)
+    let detailedHtml = `
+        <div class="analysis-block">
+            <h4>Neutralized Idea</h4>
+            <p>${data.neutral_idea}</p>
+        </div>
+        <div class="analysis-block">
+            <h4>Assumptions to Test</h4>
+            <pre style="white-space: pre-wrap; font-family: inherit;">${data.assumptions}</pre>
+        </div>
+    `;
+
+    if (data.critics) {
+        Object.entries(data.critics).forEach(([role, text]) => {
+            detailedHtml += `
+            <div class="analysis-block critic-block">
+                <h4 style="text-transform: capitalize; color: var(--color-accent);">${role} Critique</h4>
+                <pre style="white-space: pre-wrap; font-family: inherit; font-size: 0.9em; background: rgba(0,0,0,0.1); padding: 10px; border-radius: 8px;">${text}</pre>
+            </div>`;
+        });
     }
-    
+
+    elements.fullAnalysis.innerHTML = detailedHtml;
+
     // Store thread ID for follow-up questions
     currentThreadId = data.thread_id;
-    
+
     // Clear previous follow-up
     elements.followupQuestion.value = '';
     elements.followupAnswer.style.display = 'none';
-    
+
     // Show results section
     showSection(elements.resultsSection);
 }
@@ -298,21 +304,27 @@ if (elements.navbarBrand) {
 }
 
 // Navigation bar handlers
-elements.navHome.addEventListener('click', () => {
-    showSection(elements.welcomeSection);
-});
+if (elements.navHome) {
+    elements.navHome.addEventListener('click', () => {
+        showSection(elements.welcomeSection);
+    });
+}
 
-elements.navValidate.addEventListener('click', () => {
-    showSection(elements.validationSection);
-});
+if (elements.navValidate) {
+    elements.navValidate.addEventListener('click', () => {
+        showSection(elements.validationSection);
+    });
+}
 
-elements.navResults.addEventListener('click', () => {
-    if (currentThreadId) {
-        showSection(elements.resultsSection);
-    } else {
-        showError('No validation results available');
-    }
-});
+if (elements.navResults) {
+    elements.navResults.addEventListener('click', () => {
+        if (currentThreadId) {
+            showSection(elements.resultsSection);
+        } else {
+            showError('No validation results available');
+        }
+    });
+}
 
 elements.startValidationBtn.addEventListener('click', () => {
     showSection(elements.validationSection);
@@ -324,7 +336,7 @@ elements.backBtn.addEventListener('click', () => {
 
 elements.validationForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    
+
     // Get form data
     console.log('Gathering form data...');
     const ideaData = {
@@ -364,24 +376,34 @@ elements.validationForm.addEventListener('submit', async (e) => {
         return;
     }
     
+    // Construct the single idea string for the agentic backend
+    const combinedIdea = `
+**Name:** ${ideaData.idea_name}
+**Description:** ${ideaData.description}
+**Target Market:** ${ideaData.target_market}
+**Problem:** ${ideaData.problem_solving}
+**Unique Value:** ${ideaData.unique_value}
+    `.trim();
+
     try {
-        showLoading('Analyzing your startup idea... This may take a moment.');
-        
+        showLoading('Specialized agents are analyzing your startup idea from multiple perspectives...');
+
         // Submit for validation
-        const result = await validateIdea(ideaData);
-        
+        // Backend expects { "idea": "string" }
+        const result = await validateIdea({ idea: combinedIdea });
+
         hideLoading();
-        
+
         // Display results
         displayResults(result);
-        
+
         // Save to session storage
         sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
             ideaData,
             result,
             timestamp: new Date().toISOString()
         }));
-        
+
     } catch (error) {
         hideLoading();
         console.error('Validation error:', error);
@@ -396,21 +418,21 @@ elements.newValidationBtn.addEventListener('click', () => {
 
 elements.askFollowupBtn.addEventListener('click', async () => {
     const question = elements.followupQuestion.value.trim();
-    
+
     if (!question) {
         showError('Please enter a question');
         return;
     }
-    
+
     if (!currentThreadId) {
         showError('No active validation session');
         return;
     }
-    
+
     try {
         elements.askFollowupBtn.disabled = true;
         elements.askFollowupBtn.textContent = 'Asking...';
-        
+
         const result = await askFollowUp(currentThreadId, question);
         
         // Display answer with markdown rendering
@@ -419,11 +441,12 @@ elements.askFollowupBtn.addEventListener('click', async () => {
         } else {
             elements.followupAnswer.textContent = result.answer;
         }
-        elements.followupAnswer.style.display = 'block';
         
+        elements.followupAnswer.style.display = 'block';
+
         // Clear question
         elements.followupQuestion.value = '';
-        
+
     } catch (error) {
         console.error('Follow-up error:', error);
         showError(error.message || 'Failed to process question. Please try again.');
@@ -446,12 +469,12 @@ elements.followupQuestion.addEventListener('keypress', (e) => {
 document.addEventListener('DOMContentLoaded', async () => {
     // Check backend health
     const isHealthy = await checkHealth();
-    
+
     if (!isHealthy) {
         console.warn('Backend service may not be fully connected to Backboard.io');
         // You could show a warning banner here if desired
     }
-    
+
     // Check for saved session
     const savedSession = sessionStorage.getItem(STORAGE_KEY);
     if (savedSession) {
@@ -464,10 +487,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             sessionStorage.removeItem(STORAGE_KEY);
         }
     }
-    
+
     // Show welcome section by default
     showSection(elements.welcomeSection);
-    
+
     console.log('✨ Startup Validator initialized');
 });
 
