@@ -813,6 +813,150 @@ body {
     font-size: 1.2rem;
 }
 
+.section-description {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin-bottom: var(--spacing-md);
+    font-style: italic;
+}
+
+.section-description .jump-link {
+    color: var(--color-accent);
+    text-decoration: none;
+    font-style: normal;
+    font-weight: 500;
+    transition: all var(--transition-base);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.section-description .jump-link:hover {
+    color: var(--color-accent-hover);
+    text-decoration: underline;
+    transform: translateY(1px);
+}
+
+.strengths-content,
+.concerns-content,
+.steps-content {
+    color: var(--color-text-secondary);
+    line-height: 1.8;
+}
+
+/* Markdown styles for section content */
+.strengths-content h1,
+.strengths-content h2,
+.strengths-content h3,
+.strengths-content h4,
+.concerns-content h1,
+.concerns-content h2,
+.concerns-content h3,
+.concerns-content h4,
+.steps-content h1,
+.steps-content h2,
+.steps-content h3,
+.steps-content h4 {
+    color: var(--color-text-primary);
+    font-family: var(--font-display);
+    margin-top: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+    line-height: 1.3;
+}
+
+.strengths-content h3,
+.concerns-content h3,
+.steps-content h3 {
+    font-size: 1.1rem;
+    color: var(--color-accent);
+}
+
+.strengths-content p,
+.concerns-content p,
+.steps-content p {
+    margin-bottom: var(--spacing-sm);
+}
+
+.strengths-content ul,
+.strengths-content ol,
+.concerns-content ul,
+.concerns-content ol,
+.steps-content ul,
+.steps-content ol {
+    margin: var(--spacing-sm) 0;
+    padding-left: 1.5rem;
+}
+
+.strengths-content li,
+.concerns-content li,
+.steps-content li {
+    margin-bottom: 0.5rem;
+}
+
+.strengths-content strong,
+.concerns-content strong,
+.steps-content strong {
+    color: var(--color-text-primary);
+    font-weight: 600;
+}
+
+.strengths-content em,
+.concerns-content em,
+.steps-content em {
+    font-style: italic;
+}
+
+.strengths-content code,
+.concerns-content code,
+.steps-content code {
+    background: rgba(139, 92, 246, 0.1);
+    color: var(--color-accent);
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.9em;
+}
+
+.strengths-content a,
+.concerns-content a,
+.steps-content a {
+    color: var(--color-accent);
+    text-decoration: none;
+    transition: color var(--transition-base);
+}
+
+.strengths-content a:hover,
+.concerns-content a:hover,
+.steps-content a:hover {
+    color: var(--color-accent-hover);
+    text-decoration: underline;
+}
+
+.strengths-content blockquote,
+.concerns-content blockquote,
+.steps-content blockquote {
+    border-left: 3px solid var(--color-accent);
+    padding-left: var(--spacing-md);
+    margin: var(--spacing-sm) 0;
+    color: var(--color-text-muted);
+    font-style: italic;
+}
+
+.strengths-content hr,
+.concerns-content hr,
+.steps-content hr {
+    border: none;
+    border-top: 1px solid var(--glass-border);
+    margin: var(--spacing-lg) 0;
+}
+
+.concerns-content h3 {
+    margin-top: var(--spacing-lg);
+}
+
+.concerns-content h3:first-child {
+    margin-top: 0;
+}
+
 .bullet-list {
     list-style: none;
     padding: 0;
