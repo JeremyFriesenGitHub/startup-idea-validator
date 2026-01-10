@@ -303,11 +303,13 @@ class AgentService:
         else:
             # Filter to only valid critics
             critics_to_run = [c for c in selected_critics if c in available_critics]
-            # If user passed empty list? Fallback to all or allow empty? 
-            # Probably allows empty, but that might break things. Let's fallback to all if empty to be safe, 
-            # OR just run none. Running none makes sense if that's what's requested, but risk signals need input.
-            if not critics_to_run:
-                critics_to_run = available_critics
+            
+            # Enforce Market Analyst (Required)
+            if "market_analyst" not in critics_to_run:
+                critics_to_run.append("market_analyst")
+
+            # If user passed empty list (and market_analyst wasn't there somehow, though added above)? 
+            # With the addition above, it will never be empty.
 
         critic_tasks = []
         for name in critics_to_run:
@@ -345,7 +347,7 @@ class AgentService:
             "assumptions": assumptions_txt,
             "critics": critics,
             "risk_signals": risk_signals,
-            "market_analysis": critics.get("market_analyst"),
+            "market_analysis": critics["market_analyst"],
             "verdict": verdict,
             "meta": {
                 "models": self.MODELS
