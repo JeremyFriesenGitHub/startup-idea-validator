@@ -269,17 +269,25 @@ class AgentService:
         # on the main thread.
         async def _run_isolated_critic(prompt: str, model_conf: Dict[str, str]) -> str:
             # Create a localized thread for this critic
-            # Note: We don't need to persist this thread ID as the interaction is one-off.
             t = await self.client.create_thread(assistant_id=assistant_id)
             t_id = getattr(t, "id", None) or getattr(t, "thread_id", None)
             if isinstance(t, dict): t_id = t.get("id") or t.get("thread_id")
             
-            return await self.run_block_async(
-                str(t_id),
-                prompt,
-                model_conf["llm_provider"],
-                model_conf["model_name"]
-            )
+            t_id_str = str(t_id)
+            
+            try:
+                return await self.run_block_async(
+                    t_id_str,
+                    prompt,
+                    model_conf["llm_provider"],
+                    model_conf["model_name"]
+                )
+            finally:
+                # Cleanup: Delete the temporary thread
+                try:
+                    await self.client.delete_thread(thread_id=t_id_str)
+                except Exception as e:
+                    print(f"Warning: Failed to delete temporary thread {t_id_str}: {e}")
 
         critic_tasks = [
             _run_isolated_critic(P["vc"](neutral_idea), self.MODELS["vc"]),
