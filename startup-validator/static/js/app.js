@@ -18,14 +18,14 @@ const elements = {
     validationSection: document.getElementById('validationSection'),
     resultsSection: document.getElementById('resultsSection'),
     loadingOverlay: document.getElementById('loadingOverlay'),
-    
+
     // Navigation
     navbar: document.getElementById('navbar'),
     navbarBrand: document.getElementById('navbarBrand'),
     navHome: document.getElementById('navHome'),
     navValidate: document.getElementById('navValidate'),
     navResults: document.getElementById('navResults'),
-    
+
     // Buttons
     startValidationBtn: document.getElementById('startValidationBtn'),
     backBtn: document.getElementById('backBtn'),
@@ -47,6 +47,7 @@ const elements = {
     strengthsList: document.getElementById('strengthsList'),
     concernsList: document.getElementById('concernsList'),
     stepsList: document.getElementById('stepsList'),
+    marketAnalysisContent: document.getElementById('marketAnalysisContent'),
     fullAnalysis: document.getElementById('fullAnalysis'),
     followupQuestion: document.getElementById('followupQuestion'),
     followupAnswer: document.getElementById('followupAnswer'),
@@ -69,11 +70,11 @@ async function validateIdea(ideaData) {
 
     if (!response.ok) {
         const error = await response.json();
-        
+
         // Handle validation errors (422)
         if (response.status === 422 && error.detail) {
             let errorMessage = 'Please check your input:\n\n';
-            
+
             if (Array.isArray(error.detail)) {
                 // FastAPI validation errors
                 error.detail.forEach(err => {
@@ -84,10 +85,10 @@ async function validateIdea(ideaData) {
             } else if (typeof error.detail === 'string') {
                 errorMessage = error.detail;
             }
-            
+
             throw new Error(errorMessage);
         }
-        
+
         throw new Error(error.detail || 'Failed to validate idea');
     }
 
@@ -139,10 +140,10 @@ function showSection(sectionToShow) {
         sectionToShow.style.display = 'block';
         sectionToShow.classList.add('fade-in');
     }
-    
+
     // Update navbar active states
     updateNavbarState(sectionToShow);
-    
+
     // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -152,7 +153,7 @@ function updateNavbarState(activeSection) {
     [elements.navHome, elements.navValidate, elements.navResults].forEach(btn => {
         if (btn) btn.classList.remove('active');
     });
-    
+
     // Add active class to current section's nav button
     if (activeSection === elements.welcomeSection) {
         elements.navHome.classList.add('active');
@@ -196,7 +197,7 @@ function showError(message) {
     errorDiv.textContent = message;
 
     document.body.appendChild(errorDiv);
-    
+
     // Auto remove after 6 seconds
     setTimeout(() => {
         errorDiv.style.animation = 'slideOut 0.3s ease';
@@ -207,13 +208,27 @@ function showError(message) {
 function displayResults(data) {
     // Set metadata
     elements.resultMeta.textContent = `Thread ID: ${data.thread_id}`;
-    
+
     // Set summary to the Verdict (Agentic structure)
     // Use marked if available
     if (typeof marked !== 'undefined' && data.verdict) {
         elements.summaryText.innerHTML = marked.parse(data.verdict);
     } else {
         elements.summaryText.textContent = data.verdict || "Analysis complete.";
+    }
+
+    // Display Market Analysis
+    if (elements.marketAnalysisContent) {
+        if (data.market_analysis) {
+            if (typeof marked !== 'undefined') {
+                elements.marketAnalysisContent.innerHTML = marked.parse(data.market_analysis);
+            } else {
+                elements.marketAnalysisContent.textContent = data.market_analysis;
+            }
+            elements.marketAnalysisContent.parentElement.style.display = 'block';
+        } else {
+            elements.marketAnalysisContent.parentElement.style.display = 'none';
+        }
     }
 
     // Display Strengths -> Top Themes
@@ -227,7 +242,7 @@ function displayResults(data) {
     } else {
         elements.strengthsList.innerHTML = '<li>Analysis complete.</li>';
     }
-    
+
     // Display Concerns -> High Confidence Risks
     elements.concernsList.innerHTML = '';
     if (data.risk_signals && data.risk_signals.highConfidenceRisks && data.risk_signals.highConfidenceRisks.length > 0) {
@@ -239,7 +254,7 @@ function displayResults(data) {
     } else {
         elements.concernsList.innerHTML = '<li>No high-confidence risks detected.</li>';
     }
-    
+
     // Display Next Steps / Critics Summary
     elements.stepsList.innerHTML = '';
     if (data.critics) {
@@ -252,7 +267,7 @@ function displayResults(data) {
     } else {
         elements.stepsList.innerHTML = '<li>See detailed analysis below</li>';
     }
-    
+
     // Display detailed analysis (Agentic structure)
     let detailedHtml = `
         <div class="analysis-block">
@@ -347,35 +362,35 @@ elements.validationForm.addEventListener('submit', async (e) => {
         unique_value: elements.uniqueValue.value.trim() || null
     };
     console.log('Form data gathered:', ideaData);
-    
+
     // Validate required fields
     if (!ideaData.idea_name || !ideaData.description || !ideaData.target_market || !ideaData.problem_solving) {
         showError('Please fill in all required fields');
         return;
     }
-    
+
     // Client-side length validation
     const minLength = 20;
     if (ideaData.description.length < minLength) {
         showError(`Description is too short. Please provide at least ${minLength} characters to get a meaningful analysis.`);
         return;
     }
-    
+
     if (ideaData.problem_solving.length < minLength) {
         showError(`Problem description is too short. Please provide at least ${minLength} characters to help us understand the issue better.`);
         return;
     }
-    
+
     if (ideaData.idea_name.length < 3) {
         showError('Idea name is too short. Please provide a meaningful name (at least 3 characters).');
         return;
     }
-    
+
     if (ideaData.target_market.length < 3) {
         showError('Target market description is too short. Please describe your target audience (at least 3 characters).');
         return;
     }
-    
+
     // Construct the single idea string for the agentic backend
     const combinedIdea = `
 **Name:** ${ideaData.idea_name}
@@ -434,14 +449,14 @@ elements.askFollowupBtn.addEventListener('click', async () => {
         elements.askFollowupBtn.textContent = 'Asking...';
 
         const result = await askFollowUp(currentThreadId, question);
-        
+
         // Display answer with markdown rendering
         if (typeof marked !== 'undefined') {
             elements.followupAnswer.innerHTML = marked.parse(result.answer);
         } else {
             elements.followupAnswer.textContent = result.answer;
         }
-        
+
         elements.followupAnswer.style.display = 'block';
 
         // Clear question

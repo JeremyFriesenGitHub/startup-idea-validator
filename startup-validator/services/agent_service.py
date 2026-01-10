@@ -23,7 +23,7 @@ class AgentService:
             raise ValueError("BACKBOARD_API_KEY not found in environment variables")
         
         if BackboardClient is None:
-             raise ImportError("backboard-sdk not installed. Please install it.")
+            raise ImportError("backboard-sdk not installed. Please install it.")
 
         self.client = BackboardClient(api_key=self.api_key)
         self.assistant_id: Optional[str] = None
@@ -57,6 +57,10 @@ class AgentService:
             "competitor": {
                 "llm_provider": os.getenv("LLM_PROVIDER_COMPETITOR", default_provider), 
                 "model_name": os.getenv("MODEL_COMPETITOR", default_model),
+            },
+            "market_analyst": {
+                "llm_provider": os.getenv("LLM_PROVIDER_MARKET", default_provider),
+                "model_name": os.getenv("MODEL_MARKET", default_model),
             },
         }
 
@@ -216,6 +220,7 @@ class AgentService:
             "ethicist": lambda neutral: f"""Persona: Ethicist / Safety Reviewer\nAttack: harm, bias, misuse, privacy\n\nDeliver exactly:\n- HARMS & BIAS: (2 bullets)\n- MISUSE SCENARIOS: (2 bullets)\n- DATA PRIVACY: (1 specific risk)\n- REQUIRED SAFEGUARD: (1 mandatory control)\n\nDon’t moralize. Be practical.\n\nIdea:\n{neutral}""",
             "user": lambda neutral: f"""Persona: Real User (impatient, skeptical)\nAttack: adoption friction, trust, workflow fit\n\nDeliver exactly:\n- ADOPTION FRICTION: (2 bullets)\n- TRUST ISSUES: (2 bullets)\n- DEALBREAKER: (1 reason I won't sign up)\n- WHAT WOULD CONVINCE ME: (1 feature/change)\n\nIdea:\n{neutral}""",
             "competitor": lambda neutral: f"""Persona: Competitor Strategy Lead\nAttack: why we’ll crush you\n\nDeliver exactly:\n- COMPETITIVE ADVANTAGE: (2 bullets on why we win)\n- COPYCAT STRATEGY: (2 bullets on how we copy you)\n- YOUR WEAKNESS: (1 critical flaw)\n- DEFENSIVE MOVE: (1 thing you must do)\n\nBe ruthless.\n\nIdea:\n{neutral}""",
+            "market_analyst": lambda neutral: f"""Persona: Elite Market Analyst\nTask: Competitive Landscape & Capital Requirements\n\n1. COMPETITORS:\nList 3-5 **direct functional competitors** that offer the **exact same core value proposition**.\n- Do NOT list generic platforms (e.g., LinkedIn, Google, Indeed) unless they have this specific automation feature natively.\n- Focus on specific startups, Chrome extensions, or AI tools that solve this EXACT problem.\n\nFor each, provide:\n- Name\n- Success Score (1-10)\n- Est. Metric (Revenue, Users, or Valuation)\n- "How they crush you" (1 sentence)\n\nFormat as a Markdown Table.\n\n2. CAPITAL REQUIREMENTS:\nEstimate the round need (Pre-Seed, Seed, Series A) and amount ($X - $Y) to be competitive.\nProvide a 1-sentence rationale.\n\nIdea:\n{neutral}""",
             "final_judge": lambda neutral, assume, critics: f"""You are an independent hackathon judge.\nSynthesize the critics below into a decisive verdict.\n\nReturn in this exact format:\n\nPRIMARY FAILURE MODE:\n- (one sentence)\n\nTOP 3 ASSUMPTIONS TO TEST:\n1) ...\n2) ...\n3) ...\n\nKILL QUESTION:\n- (one question)\n\nWINNING DEMO ANGLE:\n- (one sentence: how to demo this in 30 seconds)\n\n48-HOUR VALIDATION EXPERIMENT:\n- (one experiment + success metric)\n\nONE PIVOT TO MAKE THIS A WINNER:\n- (one sentence)\n\nINPUTS\nNeutral Idea:\n{neutral}\n\nAssumptions:\n{assume}\n\nVC:\n{critics["vc"]}\n\nEngineer:\n{critics["engineer"]}\n\nEthicist:\n{critics["ethicist"]}\n\nUser:\n{critics["user"]}\n\nCompetitor:\n{critics["competitor"]}""",
         }
 
@@ -295,6 +300,7 @@ class AgentService:
             _run_isolated_critic(P["ethicist"](neutral_idea), self.MODELS["ethicist"]),
             _run_isolated_critic(P["user"](neutral_idea), self.MODELS["user"]),
             _run_isolated_critic(P["competitor"](neutral_idea), self.MODELS["competitor"]),
+            _run_isolated_critic(P["market_analyst"](neutral_idea), self.MODELS["market_analyst"]),
         ]
         
         # Run critics in parallel
@@ -305,6 +311,7 @@ class AgentService:
             "ethicist": results[2],
             "user": results[3],
             "competitor": results[4],
+            "market_analyst": results[5],
         }
 
         # 4. Compute Risk Signals (Local Python)
@@ -326,6 +333,7 @@ class AgentService:
             "assumptions": assumptions_txt,
             "critics": critics,
             "risk_signals": risk_signals,
+            "market_analysis": critics["market_analyst"],
             "verdict": verdict,
             "meta": {
                 "models": self.MODELS
