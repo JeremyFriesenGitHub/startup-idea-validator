@@ -8,6 +8,7 @@ const STORAGE_KEY = 'startup_validator_session';
 // State Management
 // ==========================================
 let currentThreadId = null;
+const editors = {}; // Store EasyMDE instances
 
 // ==========================================
 // DOM Elements
@@ -47,6 +48,36 @@ const elements = {
     // Loading
     loadingText: document.getElementById('loadingText')
 };
+
+// ==========================================
+// Editor Initialization
+// ==========================================
+function initEditors() {
+    const commonOptions = {
+        spellChecker: false,
+        status: false,
+        toolbar: ["bold", "italic", "heading", "|", "quote", "unordered-list", "ordered-list", "|", "preview", "guide"],
+        minHeight: "120px",
+    };
+
+    editors.description = new EasyMDE({
+        element: elements.description,
+        placeholder: "Explain what your startup does, how it works, and what makes it unique...",
+        ...commonOptions
+    });
+
+    editors.problemSolving = new EasyMDE({
+        element: elements.problemSolving,
+        placeholder: "Describe the specific problem your startup solves...",
+        ...commonOptions
+    });
+
+    editors.uniqueValue = new EasyMDE({
+        element: elements.uniqueValue,
+        placeholder: "What's your competitive advantage or unique differentiator?...",
+        ...commonOptions
+    });
+}
 
 // ==========================================
 // API Functions
@@ -214,6 +245,9 @@ function displayResults(data) {
 
 function resetForm() {
     elements.validationForm.reset();
+    if (editors.description) editors.description.value('');
+    if (editors.problemSolving) editors.problemSolving.value('');
+    if (editors.uniqueValue) editors.uniqueValue.value('');
     currentThreadId = null;
 }
 
@@ -232,13 +266,15 @@ elements.validationForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
     // Get form data
+    console.log('Gathering form data...');
     const ideaData = {
         idea_name: elements.ideaName.value.trim(),
-        description: elements.description.value.trim(),
+        description: editors.description ? editors.description.value().trim() : elements.description.value.trim(),
         target_market: elements.targetMarket.value.trim(),
-        problem_solving: elements.problemSolving.value.trim(),
-        unique_value: elements.uniqueValue.value.trim() || null
+        problem_solving: editors.problemSolving ? editors.problemSolving.value().trim() : elements.problemSolving.value.trim(),
+        unique_value: editors.uniqueValue ? editors.uniqueValue.value().trim() : elements.uniqueValue.value.trim() || null
     };
+    console.log('Form data gathered:', ideaData);
     
     // Validate required fields
     if (!ideaData.idea_name || !ideaData.description || !ideaData.target_market || !ideaData.problem_solving) {
@@ -329,6 +365,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn('Backend service may not be fully connected to Backboard.io');
         // You could show a warning banner here if desired
     }
+    
+    // Initialize Markdown Editors
+    initEditors();
     
     // Check for saved session
     const savedSession = sessionStorage.getItem(STORAGE_KEY);

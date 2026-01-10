@@ -13,6 +13,10 @@
     
     <!-- Styles -->
     <link rel="stylesheet" href="/static/css/styles.css">
+    
+    <!-- EasyMDE Markdown Editor -->
+    <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+    <script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
 </head>
 <body>
     <!-- Background Elements -->
@@ -79,7 +83,7 @@
                         <p>Provide as much detail as possible for a comprehensive analysis</p>
                     </div>
                     
-                    <form id="validationForm" class="validation-form">
+                    <form id="validationForm" class="validation-form" novalidate>
                         <div class="form-group">
                             <label for="ideaName" class="form-label">
                                 Idea Name *
@@ -106,7 +110,6 @@
                                 name="description" 
                                 class="form-textarea"
                                 placeholder="Explain what your startup does, how it works, and what makes it unique..."
-                                required
                                 rows="4"
                             ></textarea>
                         </div>
@@ -136,7 +139,6 @@
                                 name="problemSolving" 
                                 class="form-textarea"
                                 placeholder="Describe the specific problem your startup solves..."
-                                required
                                 rows="3"
                             ></textarea>
                         </div>
