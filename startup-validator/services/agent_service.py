@@ -29,30 +29,34 @@ class AgentService:
         self.assistant_id: Optional[str] = None
         
         # Load Model Configurations
+        # Refactored to use OpenAI GPT-4o for all personas
+        default_provider = "openai"
+        default_model = "gpt-4o"
+
         self.MODELS = {
             "main": {
-                "llm_provider": os.getenv("LLM_PROVIDER_MAIN", "openai"),
-                "model_name": os.getenv("MODEL_MAIN", "gpt-4o"),
+                "llm_provider": os.getenv("LLM_PROVIDER_MAIN", default_provider),
+                "model_name": os.getenv("MODEL_MAIN", default_model),
             },
             "vc": {
-                "llm_provider": os.getenv("LLM_PROVIDER_VC", "anthropic"),
-                "model_name": os.getenv("MODEL_VC", "claude-3-5-sonnet-latest"),
+                "llm_provider": os.getenv("LLM_PROVIDER_VC", default_provider),
+                "model_name": os.getenv("MODEL_VC", default_model),
             },
             "engineer": {
-                "llm_provider": os.getenv("LLM_PROVIDER_ENGINEER", "openai"),
-                "model_name": os.getenv("MODEL_ENGINEER", "gpt-4o"), # Fallback from grok
+                "llm_provider": os.getenv("LLM_PROVIDER_ENGINEER", default_provider),
+                "model_name": os.getenv("MODEL_ENGINEER", default_model),
             },
             "ethicist": {
-                "llm_provider": os.getenv("LLM_PROVIDER_ETHICIST", "google"),
-                "model_name": os.getenv("MODEL_ETHICIST", "gemini-1.5-pro"),
+                "llm_provider": os.getenv("LLM_PROVIDER_ETHICIST", default_provider),
+                "model_name": os.getenv("MODEL_ETHICIST", default_model),
             },
             "user": {
-                "llm_provider": os.getenv("LLM_PROVIDER_USER", "openai"),
-                "model_name": os.getenv("MODEL_USER", "gpt-4o-mini"),
+                "llm_provider": os.getenv("LLM_PROVIDER_USER", default_provider),
+                "model_name": os.getenv("MODEL_USER", default_model),
             },
             "competitor": {
-                "llm_provider": os.getenv("LLM_PROVIDER_COMPETITOR", "openai"), 
-                "model_name": os.getenv("MODEL_COMPETITOR", "gpt-4o"), # Fallback from cohere
+                "llm_provider": os.getenv("LLM_PROVIDER_COMPETITOR", default_provider), 
+                "model_name": os.getenv("MODEL_COMPETITOR", default_model),
             },
         }
 
