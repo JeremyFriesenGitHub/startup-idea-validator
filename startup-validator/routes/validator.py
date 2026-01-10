@@ -91,8 +91,8 @@ async def validate_startup_idea(idea: IdeaSubmission):
             "unique_value": idea.unique_value
         }
         
-        # Validate the idea
-        result = backboard.validate_idea(idea_data, thread_id=idea.thread_id)
+        # Validate the idea (async call)
+        result = await backboard.validate_idea(idea_data, thread_id=idea.thread_id)
         
         # Parse and structure the response
         response = parse_validation_response(
@@ -130,8 +130,8 @@ async def ask_follow_up_question(request: FollowUpRequest):
         # Get backboard service
         backboard = get_backboard_service()
         
-        # Ask follow-up
-        result = backboard.ask_follow_up(
+        # Ask follow-up (async call)
+        result = await backboard.ask_follow_up(
             thread_id=request.thread_id,
             question=request.question
         )
