@@ -8,7 +8,6 @@ const STORAGE_KEY = 'startup_validator_session';
 // State Management
 // ==========================================
 let currentThreadId = null;
-const editors = {}; // Store EasyMDE instances
 
 // ==========================================
 // DOM Elements
@@ -19,6 +18,13 @@ const elements = {
     validationSection: document.getElementById('validationSection'),
     resultsSection: document.getElementById('resultsSection'),
     loadingOverlay: document.getElementById('loadingOverlay'),
+    
+    // Navigation
+    navbar: document.getElementById('navbar'),
+    navbarBrand: document.getElementById('navbarBrand'),
+    navHome: document.getElementById('navHome'),
+    navValidate: document.getElementById('navValidate'),
+    navResults: document.getElementById('navResults'),
     
     // Buttons
     startValidationBtn: document.getElementById('startValidationBtn'),
@@ -50,36 +56,6 @@ const elements = {
 };
 
 // ==========================================
-// Editor Initialization
-// ==========================================
-function initEditors() {
-    const commonOptions = {
-        spellChecker: false,
-        status: false,
-        toolbar: ["bold", "italic", "heading", "|", "quote", "unordered-list", "ordered-list", "|", "preview", "guide"],
-        minHeight: "120px",
-    };
-
-    editors.description = new EasyMDE({
-        element: elements.description,
-        placeholder: "Explain what your startup does, how it works, and what makes it unique...",
-        ...commonOptions
-    });
-
-    editors.problemSolving = new EasyMDE({
-        element: elements.problemSolving,
-        placeholder: "Describe the specific problem your startup solves...",
-        ...commonOptions
-    });
-
-    editors.uniqueValue = new EasyMDE({
-        element: elements.uniqueValue,
-        placeholder: "What's your competitive advantage or unique differentiator?...",
-        ...commonOptions
-    });
-}
-
-// ==========================================
 // API Functions
 // ==========================================
 async function validateIdea(ideaData) {
@@ -93,6 +69,25 @@ async function validateIdea(ideaData) {
     
     if (!response.ok) {
         const error = await response.json();
+        
+        // Handle validation errors (422)
+        if (response.status === 422 && error.detail) {
+            let errorMessage = 'Please check your input:\n\n';
+            
+            if (Array.isArray(error.detail)) {
+                // FastAPI validation errors
+                error.detail.forEach(err => {
+                    const field = err.loc ? err.loc[err.loc.length - 1] : 'field';
+                    const msg = err.msg || 'Invalid input';
+                    errorMessage += `• ${field}: ${msg}\n`;
+                });
+            } else if (typeof error.detail === 'string') {
+                errorMessage = error.detail;
+            }
+            
+            throw new Error(errorMessage);
+        }
+        
         throw new Error(error.detail || 'Failed to validate idea');
     }
     
@@ -145,8 +140,29 @@ function showSection(sectionToShow) {
         sectionToShow.classList.add('fade-in');
     }
     
+    // Update navbar active states
+    updateNavbarState(sectionToShow);
+    
     // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function updateNavbarState(activeSection) {
+    // Remove active class from all nav buttons
+    [elements.navHome, elements.navValidate, elements.navResults].forEach(btn => {
+        if (btn) btn.classList.remove('active');
+    });
+    
+    // Add active class to current section's nav button
+    if (activeSection === elements.welcomeSection) {
+        elements.navHome.classList.add('active');
+    } else if (activeSection === elements.validationSection) {
+        elements.navValidate.classList.add('active');
+    } else if (activeSection === elements.resultsSection) {
+        elements.navResults.classList.add('active');
+        // Show results nav button
+        if (elements.navResults) elements.navResults.style.display = 'inline-flex';
+    }
 }
 
 function showLoading(message = 'Please wait while our AI validates your startup concept...') {
@@ -164,7 +180,7 @@ function showError(message) {
     errorDiv.className = 'error-notification';
     errorDiv.style.cssText = `
         position: fixed;
-        top: 20px;
+        top: 80px;
         right: 20px;
         background: linear-gradient(135deg, #ef4444, #dc2626);
         color: white;
@@ -173,64 +189,87 @@ function showError(message) {
         box-shadow: 0 8px 32px rgba(239, 68, 68, 0.3);
         z-index: 10000;
         animation: slideIn 0.3s ease;
-        max-width: 400px;
+        max-width: 450px;
+        white-space: pre-line;
+        line-height: 1.5;
     `;
     errorDiv.textContent = message;
     
     document.body.appendChild(errorDiv);
     
-    // Auto remove after 5 seconds
+    // Auto remove after 6 seconds
     setTimeout(() => {
         errorDiv.style.animation = 'slideOut 0.3s ease';
         setTimeout(() => errorDiv.remove(), 300);
-    }, 5000);
+    }, 6000);
 }
 
 function displayResults(data) {
     // Set metadata
     elements.resultMeta.textContent = `Thread ID: ${data.thread_id}`;
     
-    // Set summary
-    elements.summaryText.textContent = data.summary;
+    // Set summary with markdown rendering
+    if (typeof marked !== 'undefined') {
+        elements.summaryText.innerHTML = marked.parse(data.summary);
+    } else {
+        elements.summaryText.textContent = data.summary;
+    }
     
-    // Display strengths
+    // Display strengths with markdown rendering
     elements.strengthsList.innerHTML = '';
     if (data.strengths && data.strengths.length > 0) {
         data.strengths.forEach(strength => {
             const li = document.createElement('li');
-            li.textContent = strength;
+            if (typeof marked !== 'undefined') {
+                li.innerHTML = marked.parseInline(strength);
+            } else {
+                li.textContent = strength;
+            }
             elements.strengthsList.appendChild(li);
         });
     } else {
         elements.strengthsList.innerHTML = '<li>See detailed analysis below</li>';
     }
     
-    // Display concerns
+    // Display concerns with markdown rendering
     elements.concernsList.innerHTML = '';
     if (data.concerns && data.concerns.length > 0) {
         data.concerns.forEach(concern => {
             const li = document.createElement('li');
-            li.textContent = concern;
+            if (typeof marked !== 'undefined') {
+                li.innerHTML = marked.parseInline(concern);
+            } else {
+                li.textContent = concern;
+            }
             elements.concernsList.appendChild(li);
         });
     } else {
         elements.concernsList.innerHTML = '<li>See detailed analysis below</li>';
     }
     
-    // Display next steps
+    // Display next steps with markdown rendering
     elements.stepsList.innerHTML = '';
     if (data.next_steps && data.next_steps.length > 0) {
         data.next_steps.forEach(step => {
             const li = document.createElement('li');
-            li.textContent = step;
+            if (typeof marked !== 'undefined') {
+                li.innerHTML = marked.parseInline(step);
+            } else {
+                li.textContent = step;
+            }
             elements.stepsList.appendChild(li);
         });
     } else {
         elements.stepsList.innerHTML = '<li>See detailed analysis below</li>';
     }
     
-    // Display full analysis
-    elements.fullAnalysis.textContent = data.analysis;
+    // Display full analysis with markdown rendering
+    if (typeof marked !== 'undefined') {
+        elements.fullAnalysis.innerHTML = marked.parse(data.analysis);
+    } else {
+        // Fallback to plain text if marked.js isn't loaded
+        elements.fullAnalysis.textContent = data.analysis;
+    }
     
     // Store thread ID for follow-up questions
     currentThreadId = data.thread_id;
@@ -245,15 +284,36 @@ function displayResults(data) {
 
 function resetForm() {
     elements.validationForm.reset();
-    if (editors.description) editors.description.value('');
-    if (editors.problemSolving) editors.problemSolving.value('');
-    if (editors.uniqueValue) editors.uniqueValue.value('');
     currentThreadId = null;
 }
 
 // ==========================================
 // Event Handlers
 // ==========================================
+// Brand click handler
+if (elements.navbarBrand) {
+    elements.navbarBrand.addEventListener('click', () => {
+        showSection(elements.welcomeSection);
+    });
+}
+
+// Navigation bar handlers
+elements.navHome.addEventListener('click', () => {
+    showSection(elements.welcomeSection);
+});
+
+elements.navValidate.addEventListener('click', () => {
+    showSection(elements.validationSection);
+});
+
+elements.navResults.addEventListener('click', () => {
+    if (currentThreadId) {
+        showSection(elements.resultsSection);
+    } else {
+        showError('No validation results available');
+    }
+});
+
 elements.startValidationBtn.addEventListener('click', () => {
     showSection(elements.validationSection);
 });
@@ -269,16 +329,38 @@ elements.validationForm.addEventListener('submit', async (e) => {
     console.log('Gathering form data...');
     const ideaData = {
         idea_name: elements.ideaName.value.trim(),
-        description: editors.description ? editors.description.value().trim() : elements.description.value.trim(),
+        description: elements.description.value.trim(),
         target_market: elements.targetMarket.value.trim(),
-        problem_solving: editors.problemSolving ? editors.problemSolving.value().trim() : elements.problemSolving.value.trim(),
-        unique_value: editors.uniqueValue ? editors.uniqueValue.value().trim() : elements.uniqueValue.value.trim() || null
+        problem_solving: elements.problemSolving.value.trim(),
+        unique_value: elements.uniqueValue.value.trim() || null
     };
     console.log('Form data gathered:', ideaData);
     
     // Validate required fields
     if (!ideaData.idea_name || !ideaData.description || !ideaData.target_market || !ideaData.problem_solving) {
         showError('Please fill in all required fields');
+        return;
+    }
+    
+    // Client-side length validation
+    const minLength = 20;
+    if (ideaData.description.length < minLength) {
+        showError(`Description is too short. Please provide at least ${minLength} characters to get a meaningful analysis.`);
+        return;
+    }
+    
+    if (ideaData.problem_solving.length < minLength) {
+        showError(`Problem description is too short. Please provide at least ${minLength} characters to help us understand the issue better.`);
+        return;
+    }
+    
+    if (ideaData.idea_name.length < 3) {
+        showError('Idea name is too short. Please provide a meaningful name (at least 3 characters).');
+        return;
+    }
+    
+    if (ideaData.target_market.length < 3) {
+        showError('Target market description is too short. Please describe your target audience (at least 3 characters).');
         return;
     }
     
@@ -331,8 +413,12 @@ elements.askFollowupBtn.addEventListener('click', async () => {
         
         const result = await askFollowUp(currentThreadId, question);
         
-        // Display answer
-        elements.followupAnswer.textContent = result.answer;
+        // Display answer with markdown rendering
+        if (typeof marked !== 'undefined') {
+            elements.followupAnswer.innerHTML = marked.parse(result.answer);
+        } else {
+            elements.followupAnswer.textContent = result.answer;
+        }
         elements.followupAnswer.style.display = 'block';
         
         // Clear question
@@ -365,9 +451,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn('Backend service may not be fully connected to Backboard.io');
         // You could show a warning banner here if desired
     }
-    
-    // Initialize Markdown Editors
-    initEditors();
     
     // Check for saved session
     const savedSession = sessionStorage.getItem(STORAGE_KEY);
